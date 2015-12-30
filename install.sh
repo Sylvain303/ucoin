@@ -89,7 +89,7 @@ install_ucoin_from_git() {
   fi
   if ! ucoin_has "python"; then
     if ucoin_is_ubuntu_install; then
-      echo "=> python is not available. Please install 'build-essential' package with 'sudo apt-get install build-essential' command, then retry uCoin installation."
+      echo "=> python is not available. Please install 'python' package with 'sudo apt-get install python' command, then retry uCoin installation."
       exit 1
     elif ucoin_is_debian_install; then
       echo "=> python is not available. Please install 'build-essentials' package with 'apt-get install build-essential' command as root, then retry uCoin installation."
@@ -154,38 +154,62 @@ install_ucoin_from_git() {
     }
   fi
 
-  # Download Nodejs
-  local NVER="0.12.7";
-  local ARCH="86"
-  local X64=`uname -a | grep "x86_64"`
-  if [ ! -z "$X64" ]; then
-    ARCH="64"
-  fi
-  local NODEJS_FILENAME=node-v${NVER}-linux-x${ARCH}
-  local NODEJS_TARBALL=http://nodejs.org/dist/v${NVER}/${NODEJS_FILENAME}.tar.gz
-  local NODEJS_ARCHIVE=$UCOIN_DIR/node.tar.gz
-  local NODEJS_EXTRACTED=$UCOIN_DIR/$NODEJS_FILENAME
-  if [ ! -d "$UCOIN_DIR/node" ]; then
-    echo "=> Downloading '$NODEJS_TARBALL' to '$NODEJS_ARCHIVE'"
-    ucoin_download "$NODEJS_TARBALL" -o "$NODEJS_ARCHIVE" || {
-      echo >&2 "Failed to download '$NODEJS_TARBALL'"
-      return 4
-    }
-    tar xzf $NODEJS_ARCHIVE || {
-      echo >&2 "Failed to extract '$NODEJS_ARCHIVE'"
-      return 5
-    }
-    mv $NODEJS_FILENAME "node" || {
-      echo >&2 "Failed to extract '$NODEJS_ARCHIVE'"
-      return 6
-    }
-  fi
+  install_node_js "latest-v0.12.x"
 
   # Install uCoin dependencies (NPM modules)
   export PATH=$PATH:$UCOIN_DIR/node/bin/
   npm install
   export PATH=$PREVIOUS_PATH
   return
+}
+
+install_node_js() {
+  # NVER match folder's name in http://nodejs.org/dist/
+  local NVER="$1"
+
+  [[ -z "$NVER" ]] && { echo "\$NVER is empty. aborting install_node_js"; return 1; }
+  [[ -z "$UCOIN_DIR" ]] && { echo "\$UCOIN_DIR is empty aborting."; return 2; }
+  [[ -d "$UCOIN_DIR" ]] || { echo "directory not found: $UCOIN_DIR"; return 3; }
+
+  local ARCH="86"
+  local X64=`uname -a | grep "x86_64"`
+  if [ ! -z "$X64" ]; then
+    ARCH="64"
+  fi
+
+  # download http://nodejs.org/dist/latest-v0.12.x/SHASUMS.txt, we will identify the required
+  # filename from that txt file
+
+  local node_shasum=http://nodejs.org/dist/${NVER}/SHASUMS.txt
+  ucoin_download $node_shasum -o "$UCOIN_DIR/SHASUMS.txt"
+  local nodejs_archive=$(awk "/node-[^-]+-linux-x${ARCH}/ { print \$2 }" "$UCOIN_DIR/SHASUMS.txt")
+
+  rm -f "$UCOIN_DIR/SHASUMS.txt"
+  [[ -z "$nodejs_archive" ]] && { echo "SHASUMS.txt found: $node_shasum"; return 4; }
+
+  # Download Nodejs
+  local NODEJS_TARBALL=http://nodejs.org/dist/${NVER}/$nodejs_archive
+  local NODEJS_FILENAME=$(basename "$nodejs_archive" .tar.gz)
+  local NODEJS_ARCHIVE=$UCOIN_DIR/node.tar.gz
+  local NODEJS_EXTRACTED=$UCOIN_DIR/$NODEJS_FILENAME
+
+  if [ ! -d "$UCOIN_DIR/node" ]; then
+    echo "=> Downloading '$NODEJS_TARBALL' to '$NODEJS_ARCHIVE'"
+    ucoin_download "$NODEJS_TARBALL" -o "$NODEJS_ARCHIVE" || {
+      echo >&2 "Failed to download '$NODEJS_TARBALL'"
+      return 4
+    }
+    cd $UCOIN_DIR
+    tar xzf $NODEJS_ARCHIVE || {
+      echo >&2 "Failed to extract '$NODEJS_ARCHIVE'"
+      return 5
+    }
+    mv $NODEJS_FILENAME "node" || {
+      echo >&2 "Failed to move '$NODEJS_ARCHIVE'"
+      return 6
+    }
+    cd - > /dev/null
+  fi
 }
 
 install_ucoin_as_script() {
