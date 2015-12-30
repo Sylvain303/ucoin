@@ -166,10 +166,14 @@ install_ucoin_from_git() {
 install_node_js() {
   # NVER match folder's name in http://nodejs.org/dist/
   local NVER="$1"
+  local dest_dir="$UCOIN_DIR"
+  if [[ ! -z "$2" ]] ; then
+    dest_dir="$2"
+  fi
 
   [[ -z "$NVER" ]] && { echo "\$NVER is empty. aborting install_node_js"; return 1; }
-  [[ -z "$UCOIN_DIR" ]] && { echo "\$UCOIN_DIR is empty aborting."; return 2; }
-  [[ -d "$UCOIN_DIR" ]] || { echo "directory not found: $UCOIN_DIR"; return 3; }
+  [[ -z "$dest_dir" ]] && { echo "\$dest_dir is empty aborting."; return 2; }
+  [[ -d "$dest_dir" ]] || { echo "directory not found: $dest_dir"; return 3; }
 
   local ARCH="86"
   local X64=`uname -a | grep "x86_64"`
@@ -181,25 +185,25 @@ install_node_js() {
   # filename from that txt file
 
   local node_shasum=http://nodejs.org/dist/${NVER}/SHASUMS.txt
-  ucoin_download $node_shasum -o "$UCOIN_DIR/SHASUMS.txt"
-  local nodejs_archive=$(awk "/node-[^-]+-linux-x${ARCH}/ { print \$2 }" "$UCOIN_DIR/SHASUMS.txt")
+  ucoin_download $node_shasum -o "$dest_dir/SHASUMS.txt"
+  local nodejs_archive=$(awk "/node-[^-]+-linux-x${ARCH}/ { print \$2 }" "$dest_dir/SHASUMS.txt")
 
-  rm -f "$UCOIN_DIR/SHASUMS.txt"
+  rm -f "$dest_dir/SHASUMS.txt"
   [[ -z "$nodejs_archive" ]] && { echo "SHASUMS.txt found: $node_shasum"; return 4; }
 
   # Download Nodejs
   local NODEJS_TARBALL=http://nodejs.org/dist/${NVER}/$nodejs_archive
   local NODEJS_FILENAME=$(basename "$nodejs_archive" .tar.gz)
-  local NODEJS_ARCHIVE=$UCOIN_DIR/node.tar.gz
-  local NODEJS_EXTRACTED=$UCOIN_DIR/$NODEJS_FILENAME
+  local NODEJS_ARCHIVE=node.tar.gz
+  local NODEJS_EXTRACTED=$NODEJS_FILENAME
 
-  if [ ! -d "$UCOIN_DIR/node" ]; then
+  if [ ! -d "$dest_dir/node" ]; then
     echo "=> Downloading '$NODEJS_TARBALL' to '$NODEJS_ARCHIVE'"
-    ucoin_download "$NODEJS_TARBALL" -o "$NODEJS_ARCHIVE" || {
+    ucoin_download "$NODEJS_TARBALL" -o "$dest_dir/$NODEJS_ARCHIVE" || {
       echo >&2 "Failed to download '$NODEJS_TARBALL'"
       return 4
     }
-    cd $UCOIN_DIR
+    cd $dest_dir
     tar xzf $NODEJS_ARCHIVE || {
       echo >&2 "Failed to extract '$NODEJS_ARCHIVE'"
       return 5
@@ -210,6 +214,7 @@ install_node_js() {
     }
     cd - > /dev/null
   fi
+  echo "nodejs in '$dest_dir/node'"
 }
 
 install_ucoin_as_script() {
@@ -372,6 +377,15 @@ ucoin_reset() {
     ucoin_is_available_for_distribution
 }
 
-[ "_$UCOIN_ENV" = "_testing" ] || ucoin_do_install $1
+if [[ "$1" == "--call-only" ]] ; then
+  # only call arg2 function
+  method=$2
+  shift 2
+  eval "$method \"\$@\""
+else
+  # normal call
+  [ "_$UCOIN_ENV" = "_testing" ] || ucoin_do_install $1
+fi
+
 
 } # this ensures the entire script is downloaded #
