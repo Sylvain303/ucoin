@@ -14,14 +14,19 @@ ucoind() {
 	local NODE
 	local PM2
 
+  if [[ -z "$UCOIN_DIR" ]]; then
+    echo "error: \$UCOIN_DIR is emply"
+    return 1
+  fi
+
 	if [[ -d $UCOIN_DIR/node ]]; then
 	  NODE=$UCOIN_DIR/node/bin/node
-	fi;
+	fi
 
 	VERSION=`$NODE -v`
 
 	if [[ $VERSION != v0.12* ]]; then
-	  echo "$NODE v0.12 is required";
+	  echo "$NODE v0.12 is required"
 	else
 
 		# OK, execute command
@@ -86,10 +91,10 @@ ucoind() {
 		;;
 
 		esac
-	fi;
+	fi
 }
 
 # If the script was launched with parameters, try to launch the uCoin command
-if [ ! -z $1 ]; then
+if [ ! -z "$1" ]; then
 	ucoind $*
 fi
